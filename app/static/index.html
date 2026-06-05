@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>kiro-spy — Image Geolocation</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{--bg:#0b1020;--panel:#121a30;--ink:#e6ecff;--muted:#9fb0d0;--acc:#6ea8fe;--acc2:#46e0b0;--line:#22304f}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:16px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header h1{font-size:1.1rem;margin:0}
+  .grow{flex:1}
+  .badge{font-size:.72rem;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:#1b2740;color:var(--muted)}
+  .wrap{display:grid;grid-template-columns:340px 1fr;gap:0;height:calc(100vh - 58px)}
+  @media(max-width:760px){.wrap{grid-template-columns:1fr;height:auto}#map{height:60vh}}
+  aside{padding:18px;border-right:1px solid var(--line);overflow:auto}
+  #map{height:100%;min-height:420px}
+  .drop{border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;cursor:pointer;transition:.15s;background:var(--panel)}
+  .drop:hover{border-color:var(--acc);background:#16213c}
+  .drop input{display:none}
+  button{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04102a;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;width:100%;margin-top:12px}
+  button:disabled{opacity:.5;cursor:default}
+  img#preview{max-width:100%;border-radius:10px;margin-top:12px;display:none}
+  .note{font-size:.8rem;color:#ffb454;background:rgba(255,180,84,.08);border-left:3px solid #ffb454;padding:8px 10px;border-radius:0 8px 8px 0;margin-top:12px;display:none}
+  ul.res{list-style:none;padding:0;margin:14px 0 0}
+  ul.res li{padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--panel);font-size:.86rem;cursor:pointer}
+  ul.res li b{color:var(--acc2)}
+  ul.res li .bar{height:5px;background:#1b2740;border-radius:3px;margin-top:6px;overflow:hidden}
+  ul.res li .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+  .muted{color:var(--muted);font-size:.82rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>📍 kiro-spy</h1>
+  <span class="muted">pixels-only image geolocation</span>
+  <span class="grow"></span>
+  <span class="badge" id="backendBadge">backend: …</span>
+</header>
+<div class="wrap">
+  <aside>
+    <label class="drop" id="drop">
+      <input type="file" id="fileInput" accept="image/*">
+      <div id="dropText">Drop a photo here or <b>click to choose</b></div>
+    </label>
+    <img id="preview" alt="preview">
+    <button id="go" disabled>Locate</button>
+    <div class="note" id="note"></div>
+    <ul class="res" id="results"></ul>
+  </aside>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map = L.map('map', {worldCopyJump:true}).setView([20, 0], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {attribution:'&copy; OpenStreetMap', maxZoom:19}).addTo(map);
+
+let file = null, markers = [];
+const $ = id => document.getElementById(id);
+
+fetch('/health').then(r=>r.json()).then(d=>{
+  $('backendBadge').textContent = `backend: ${d.backend}${d.real_model?' (real)':' (stub)'}`;
+}).catch(()=>{});
+
+$('fileInput').addEventListener('change', e => {
+  file = e.target.files[0];
+  if(!file) return;
+  $('preview').src = URL.createObjectURL(file);
+  $('preview').style.display = 'block';
+  $('dropText').innerHTML = file.name;
+  $('go').disabled = false;
+});
+
+$('go').addEventListener('click', async () => {
+  if(!file) return;
+  $('go').disabled = true; $('go').textContent = 'Locating…';
+  const fd = new FormData(); fd.append('file', file);
+  try {
+    const r = await fetch('/locate?top_k=5', {method:'POST', body:fd});
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.detail || 'request failed');
+    render(d);
+  } catch(err){ alert('Error: ' + err.message); }
+  $('go').disabled = false; $('go').textContent = 'Locate';
+});
+
+function render(d){
+  markers.forEach(m=>map.removeLayer(m)); markers = [];
+  const note = $('note');
+  if(d.note){ note.style.display='block'; note.textContent = d.note; }
+  else note.style.display='none';
+
+  const ul = $('results'); ul.innerHTML = '';
+  const pts = d.predictions || [];
+  pts.forEach((p,i) => {
+    const m = L.marker([p.lat, p.lon]).addTo(map)
+      .bindPopup(`#${i+1} — ${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}<br>confidence ${(p.confidence*100).toFixed(1)}%`);
+    if(i===0) m.openPopup();
+    markers.push(m);
+    const li = document.createElement('li');
+    li.innerHTML = `<b>#${i+1}</b> ${p.lat.toFixed(4)}, ${p.lon.toFixed(4)} `
+      + `<span class="muted">· ${(p.confidence*100).toFixed(1)}%</span>`
+      + `<div class="bar"><i style="width:${Math.min(100,p.confidence*100)}%"></i></div>`;
+    li.onclick = () => { map.setView([p.lat,p.lon], 6); m.openPopup(); };
+    ul.appendChild(li);
+  });
+  if(pts.length){
+    map.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lon])).pad(0.3));
+  }
+}
+</script>
+</body>
+</html>
