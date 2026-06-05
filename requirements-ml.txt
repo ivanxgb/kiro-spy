@@ -1,0 +1,7 @@
+# Optional, heavy deps for the REAL model backends (need bandwidth; GPU recommended).
+# Install with: pip install -r requirements-ml.txt
+torch
+torchvision
+transformers
+open_clip_torch
+geoclip

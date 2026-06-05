@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Data & model artifacts (heavy / generated)
+data/
+models/
+outputs/
+uploads/
+*.index
+*.faiss
+*.npy
+*.npz
+/tmp/
+
+# OS
+.DS_Store

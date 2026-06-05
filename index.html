@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Geolocation Engine — Technical Build Guide</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a30; --panel2:#0f1729; --ink:#e6ecff; --muted:#9fb0d0;
+    --acc:#6ea8fe; --acc2:#46e0b0; --warn:#ffb454; --danger:#ff6b6b; --line:#22304f; --chip:#1b2740;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#0b1020,#0a0f1d 60%);color:var(--ink)}
+  a{color:var(--acc);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:"SF Mono",Menlo,Consolas,monospace;background:#0d1426;border:1px solid var(--line);
+    padding:.1em .4em;border-radius:6px;font-size:.86em;color:#cfe0ff}
+  pre{background:#0d1426;border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;font-size:.83em;line-height:1.55}
+  pre code{background:none;border:none;padding:0}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 22px}
+
+  header{padding:64px 0 36px;border-bottom:1px solid var(--line);
+    background:radial-gradient(900px 360px at 80% -10%,rgba(110,168,254,.18),transparent),
+               radial-gradient(700px 320px at 10% 0%,rgba(70,224,176,.12),transparent)}
+  .kicker{letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;color:var(--acc2);font-weight:700}
+  h1{font-size:clamp(2rem,4.5vw,3.1rem);line-height:1.1;margin:.25em 0 .2em}
+  .lede{color:var(--muted);font-size:1.1rem;max-width:790px}
+  .pill{display:inline-block;background:var(--chip);border:1px solid var(--line);color:var(--muted);
+    border-radius:999px;padding:5px 12px;font-size:.78rem;margin:4px 6px 0 0}
+
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(10,15,29,.86);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);padding:10px 0}
+  nav.toc .wrap{display:flex;flex-wrap:wrap;gap:6px}
+  nav.toc a{color:var(--muted);font-size:.8rem;padding:6px 9px;border-radius:8px}
+  nav.toc a:hover{background:var(--chip);color:var(--ink);text-decoration:none}
+
+  section{padding:44px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.65rem;margin:0 0 .1em;display:flex;align-items:center;gap:10px}
+  h2 .num{font-size:.85rem;color:var(--acc);border:1px solid var(--line);background:var(--chip);
+    width:30px;height:30px;display:grid;place-items:center;border-radius:8px;flex:none}
+  h3{font-size:1.12rem;margin:1.5em 0 .4em;color:#dbe6ff}
+  .sub{color:var(--muted);margin-top:.2em}
+
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:820px){.g2,.g3{grid-template-columns:1fr}}
+
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);
+    border-radius:14px;padding:18px}
+  .card h4{margin:0 0 .3em;font-size:1.02rem}
+  .card p{margin:.3em 0;color:var(--muted);font-size:.92rem}
+  .tag{font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;font-weight:700;color:var(--acc2)}
+
+  table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:10px;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--chip);color:#cfe0ff;font-size:.8rem;letter-spacing:.03em}
+  tbody tr:nth-child(odd){background:rgba(255,255,255,.015)}
+  .rec{color:var(--acc2);font-weight:700}
+
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0}
+  .flow .step{background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:.84rem}
+  .flow .arr{color:var(--acc);font-weight:700}
+
+  .phase{margin:20px 0;padding:20px;background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line);border-radius:14px}
+  .phase .head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .phase .badge{width:50px;height:50px;border-radius:12px;display:grid;place-items:center;font-weight:800;
+    font-size:1rem;color:#04102a;background:linear-gradient(135deg,var(--acc),var(--acc2));flex:none}
+  .phase .head h3{margin:0}
+  .phase .goal{color:var(--muted);font-style:italic;margin:.2em 0 .8em}
+  .phase ol{margin:.3em 0;padding-left:20px}
+  .phase ol li{margin:.45em 0;color:#d6e1f7}
+  .phase ol li b{color:#fff}
+  .dod{margin-top:12px;border-left:3px solid var(--acc2);background:rgba(70,224,176,.07);
+    padding:10px 14px;border-radius:0 10px 10px 0;font-size:.9rem}
+  .dod b{color:#bdf3df}
+  .status{font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;font-weight:800;padding:3px 9px;border-radius:999px;margin-left:auto;white-space:nowrap}
+  .status.done{background:rgba(70,224,176,.16);color:#7ef0c8;border:1px solid #2e6b58}
+  .status.wip{background:rgba(255,180,84,.16);color:#ffd28a;border:1px solid #6b5326}
+  .status.todo{background:#1b2740;color:#9fb0d0;border:1px solid var(--line)}
+
+  .callout{border-left:3px solid var(--warn);background:rgba(255,180,84,.07);padding:14px 16px;border-radius:0 12px 12px 0}
+  .callout.danger{border-color:var(--danger);background:rgba(255,107,107,.08)}
+  .callout.ok{border-color:var(--acc2);background:rgba(70,224,176,.07)}
+  .callout p{margin:.3em 0}
+
+  ul.clean{list-style:none;padding:0}
+  ul.clean li{padding:7px 0 7px 26px;position:relative;color:var(--muted);border-bottom:1px solid rgba(255,255,255,.04)}
+  ul.clean li::before{content:"▸";position:absolute;left:4px;color:var(--acc)}
+  ul.clean li b{color:var(--ink)}
+
+  footer{padding:36px 0 70px;color:var(--muted);font-size:.86rem}
+  .muted{color:var(--muted)}
+  .small{font-size:.82rem}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="kicker">Technical Build Guide · pixels-only image geolocation</div>
+    <h1>Building an Image Geolocation Engine</h1>
+    <p class="lede">An actionable, step-by-step engineering guide to build a <b>GeoSpy-style</b> system that predicts <i>where</i> a photo was taken from its pixels alone — no EXIF, no GPS. Verified Hugging Face models, runnable code, and a phased plan with explicit "Definition of Done" gates.</p>
+    <div>
+      <span class="pill">GeoCLIP · StreetCLIP · PIGEON</span>
+      <span class="pill">OSV-5M</span>
+      <span class="pill">FAISS retrieval</span>
+      <span class="pill">Vision-LLM + RAG</span>
+      <span class="pill">FastAPI</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#problem">Problem</a>
+    <a href="#cues">Cues</a>
+    <a href="#paradigms">Paradigms</a>
+    <a href="#sota">SOTA</a>
+    <a href="#arch">Architecture</a>
+    <a href="#hf">HF Models</a>
+    <a href="#data">Datasets</a>
+    <a href="#metrics">Metrics + code</a>
+    <a href="#guide">Build Guide</a>
+    <a href="#stack">Stack</a>
+    <a href="#refs">References</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<section id="problem">
+  <h2><span class="num">0</span>The Problem</h2>
+  <p class="sub">Given one photo with metadata stripped, predict (latitude, longitude) of capture.</p>
+  <p>This is <b>image geolocalization</b>. The core idea (since <i>Im2GPS</i>, 2008) is statistical: train on <b>millions of geotagged images</b> so a model learns the mapping from visual appearance → location. GeoSpy/Graylark ("Raven") markets a "Large Geolocation Model" and combines four method families — retrieval, classification, hybrid, and large vision-language models — which is exactly the academic lineage we build on below.</p>
+</section>
+
+<section id="cues">
+  <h2><span class="num">1</span>What the Model Reads</h2>
+  <p class="sub">The cues geolocation models exploit. PIGEON's attention maps confirm the model learns these unsupervised.</p>
+  <div class="grid g3">
+    <div class="card"><h4>🏛️ Architecture</h4><p>Building styles, materials, roofing, urban density — region-specific.</p></div>
+    <div class="card"><h4>🌿 Vegetation &amp; soil</h4><p>Flora, crops, soil color, geology → climate band &amp; continent.</p></div>
+    <div class="card"><h4>🛣️ Road infrastructure</h4><p>Lane markings, bollards, guardrails, utility poles — highly diagnostic per country.</p></div>
+    <div class="card"><h4>🔤 Text &amp; signage</h4><p>Language, script, fonts, business names. OCR + LVLMs read these directly.</p></div>
+    <div class="card"><h4>🚗 Driving side / vehicles</h4><p>Left/right traffic, plate shapes/colors, common car models.</p></div>
+    <div class="card"><h4>☀️ Sun, sky &amp; climate</h4><p>Solar angle &amp; shadows → latitude/time; haze, snow, sky tone → climate.</p></div>
+  </div>
+</section>
+
+<section id="paradigms">
+  <h2><span class="num">2</span>The Four Paradigms</h2>
+  <div class="grid g2">
+    <div class="card"><span class="tag">① Retrieval (VPR)</span><h4>Match against a geotagged gallery</h4><p>Embed query, k-NN in a DB of geotagged photos, transfer coords. Im2GPS → NetVLAD → DINOv2. <b>+</b> Pinpoint where coverage is dense. <b>−</b> Needs a huge DB; fails on unseen places.</p></div>
+    <div class="card"><span class="tag">② Classification (geocells)</span><h4>Carve Earth into cells, classify</h4><p>PlaNet (2016): split globe into multi-scale cells (Google S2), predict the cell. <b>+</b> Scalable, generalizes. <b>−</b> Accuracy capped by cell size.</p></div>
+    <div class="card"><span class="tag">③ Image↔GPS alignment</span><h4>Continuous coords (GeoCLIP)</h4><p>CLIP-style contrastive alignment of an image encoder + a GPS location encoder (random Fourier features). Earth as a continuous function. <b>+</b> Continuous coords, open-source, data-efficient.</p></div>
+    <div class="card"><span class="tag">④ Multimodal-LLM + RAG</span><h4>Reason like an analyst (Img2Loc)</h4><p>Retrieve similar geotagged images, feed candidate coords + image to a vision-LLM that reasons over cues and explains. <b>+</b> No training, interpretable, SOTA. <b>Closest to modern commercial tools.</b></p></div>
+  </div>
+</section>
+
+<section id="sota">
+  <h2><span class="num">3</span>SOTA Blueprint: PIGEON / PIGEOTTO</h2>
+  <p class="sub">Stanford 2023 — the reference full pipeline (beat top-0.01% GeoGuessr players; weights withheld for safety). We reproduce its ideas in Phase&nbsp;4.</p>
+  <div class="grid g3">
+    <div class="card"><h4>Semantic geocells</h4><p>GADM admin boundaries → OPTICS clustering → Voronoi tessellation. Balanced &amp; meaningful cells.</p></div>
+    <div class="card"><h4>Haversine-smoothing loss</h4><p>Soften one-hot cell labels by great-circle distance to neighbors → learns geographic adjacency.</p></div>
+    <div class="card"><h4>Multi-task contrastive pretrain</h4><p>CLIP ViT-L/14-336 + synthetic captions (location, climate, compass, season, driving side).</p></div>
+    <div class="card"><h4>Auxiliary heads</h4><p>Köppen climate, month, temperature, precipitation, elevation, population → positive transfer.</p></div>
+    <div class="card"><h4>Hierarchical refinement</h4><p>Top-K geocells → refine to a point via image-embedding L2 distance to location clusters.</p></div>
+    <div class="card"><h4>Biggest wins (ablation)</h4><p>Panorama input &amp; haversine smoothing dominate; refinement adds street-level hits.</p></div>
+  </div>
+</section>
+
+<section id="arch">
+  <h2><span class="num">4</span>Reference Architecture</h2>
+  <div class="flow">
+    <span class="step">📷 Upload</span><span class="arr">→</span>
+    <span class="step">Strip EXIF / preprocess</span><span class="arr">→</span>
+    <span class="step">Image encoder (GeoCLIP / StreetCLIP / DINOv2)</span><span class="arr">→</span>
+    <span class="step">Embedding</span><span class="arr">→</span>
+    <span class="step">Vector k-NN (FAISS / Qdrant)</span>
+  </div>
+  <div class="flow">
+    <span class="step">Candidate coords + geocell probs</span><span class="arr">→</span>
+    <span class="step">Vision-LLM refine + explain (optional)</span><span class="arr">→</span>
+    <span class="step">📍 lat/lon + confidence + heatmap + rationale</span>
+  </div>
+</section>
+
+<section id="hf">
+  <h2><span class="num">5</span>Models on Hugging Face <span class="small muted">(verified live)</span></h2>
+  <p class="sub">Pulled from the HF Hub API with download counts. Pick by phase: zero-shot first, train later.</p>
+  <table>
+    <thead><tr><th>Model ID</th><th>~Downloads</th><th>Type</th><th>Use it for</th></tr></thead>
+    <tbody>
+      <tr><td class="rec">geolocal/StreetCLIP</td><td>21,800</td><td>zero-shot image classification</td><td><b>Best zero-shot start.</b> CLIP ViT-L/14-336 tuned for geolocation; classify country/city with no training</td></tr>
+      <tr><td>onnx-community/StreetCLIP-ONNX</td><td>~140</td><td>ONNX</td><td>StreetCLIP in-browser / CPU serving</td></tr>
+      <tr><td class="rec">Xenova/geoclip-large-patch14</td><td>~240</td><td>ONNX (Transformers.js)</td><td>GeoCLIP image→GPS in the browser, client-side &amp; private</td></tr>
+      <tr><td>MVRL/geoclip-location-encoder</td><td>~180</td><td>location encoder</td><td>GPS encoder alone — build your own image↔GPS alignment</td></tr>
+      <tr><td>osv5m/baseline</td><td>~560</td><td>geolocation model</td><td>Official OpenStreetView-5M baseline to benchmark against</td></tr>
+      <tr><td>gips-mai/clip_finetuned_osv5m</td><td>~40</td><td>feature-extraction</td><td>CLIP already fine-tuned on OSV-5M; retrieval embeddings</td></tr>
+      <tr><td>openai/clip-vit-large-patch14-336</td><td>millions</td><td>backbone</td><td>PIGEON's backbone — base for custom fine-tuning (Phase 4)</td></tr>
+      <tr><td>facebook/dinov2-large</td><td>millions</td><td>backbone</td><td>Strongest self-supervised descriptors for retrieval re-ranking</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><p>The <b>official GeoCLIP</b> is used best via its pip package (<code>pip install geoclip</code>, which downloads its own weights) rather than a HF model card. For 100% HF-native zero-shot, use <b>StreetCLIP</b>.</p></div>
+</section>
+
+<section id="data">
+  <h2><span class="num">6</span>Datasets</h2>
+  <table>
+    <thead><tr><th>HF / Source</th><th>Size</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td class="rec">osv5m/osv5m</td><td>5M street images (~290k dl)</td><td><b>Primary training corpus.</b> CSV cols: <code>latitude, longitude, country, drive_side, climate, soil, land_cover, region, city</code> — ships the auxiliary labels PIGEON needs</td></tr>
+      <tr><td>MP-16 / MediaEval 2016</td><td>~4.7M Flickr</td><td>Alternative training corpus (PIGEOTTO used 4.2M)</td></tr>
+      <tr><td>Im2GPS / Im2GPS3k</td><td>237 / 3,000</td><td>Standard benchmarks</td></tr>
+      <tr><td>YFCC4k / YFCC26k</td><td>4k / 26k</td><td>Benchmarks</td></tr>
+      <tr><td>Google Landmarks v2</td><td>~5M</td><td>Landmark coverage</td></tr>
+      <tr><td>GADM + Köppen + WorldClim</td><td>—</td><td>Geocell boundaries + climate/weather aux labels</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="metrics">
+  <h2><span class="num">7</span>Evaluation (build this first)</h2>
+  <p class="sub">Standard metric: % of predictions within distance radii + median great-circle error. Wire this up in Phase&nbsp;0 so every later change is measurable.</p>
+<pre><code>import math
+
+def haversine_km(a, b):                       # a,b = (lat, lon)
+    R = 6371.0
+    lat1, lon1, lat2, lon2 = map(math.radians, [a[0], a[1], b[0], b[1]])
+    h = (math.sin((lat2-lat1)/2)**2
+         + math.cos(lat1)*math.cos(lat2)*math.sin((lon2-lon1)/2)**2)
+    return 2 * R * math.asin(math.sqrt(h))
+
+THRESH = {"street":1, "city":25, "region":200, "country":750, "continent":2500}
+
+def report(preds, gts):                        # lists of (lat,lon)
+    d = sorted(haversine_km(p, g) for p, g in zip(preds, gts))
+    median = d[len(d)//2]
+    acc = {k: 100*sum(x <= v for x in d)/len(d) for k, v in THRESH.items()}
+    return {"median_km": round(median,1), "acc_pct": acc}
+# Reference: PIGEON ~40% @ 25km, ~44km median on Street View.</code></pre>
+</section>
+
+<section id="guide">
+  <h2><span class="num">8</span>The Build Guide</h2>
+  <p class="sub">Six phases. Each has concrete tasks, runnable code, and a Definition of Done (DoD) gate before moving on.</p>
+  <div class="callout ok">
+    <p><b>Implementation status (this repo):</b> P0 &amp; P1 built and tested end-to-end; P2 retrieval scaffolded &amp; unit-checked on synthetic data. Working code lives under <code>app/</code>. Run the MVP:</p>
+  </div>
+<pre><code>pip install -r requirements.txt
+GEO_BACKEND=stub uvicorn app.main:app --reload      # ML-free stub — runs anywhere, no GPU
+
+# retrieval engine — the GALLERY decides (GPU-free demo):
+python scripts/build_demo_gallery.py && GEO_BACKEND=retrieval ENCODER=hash uvicorn app.main:app
+
+# real model:  pip install -r requirements-ml.txt && GEO_BACKEND=geoclip uvicorn app.main:app
+# UI: http://127.0.0.1:8000   ·   eval: python -m app.geo.metrics   ·   retrieval: python -m app.geo.retrieval</code></pre>
+
+  <div class="phase">
+    <div class="head"><div class="badge">P0</div><h3>Setup &amp; guardrails</h3><span class="status done">✓ done</span></div>
+    <div class="goal">Goal: reproducible env, measurable baseline, and the responsible-use policy written before any feature.</div>
+    <ol>
+      <li><b>Environment:</b><br>
+        <code>python -m venv .venv &amp;&amp; source .venv/bin/activate</code><br>
+        <code>pip install torch torchvision transformers open_clip_torch geoclip faiss-cpu qdrant-client fastapi "uvicorn[standard]" python-multipart pillow datasets accelerate</code></li>
+      <li><b>Eval harness:</b> implement §7 metrics; pull Im2GPS3k as the holdout set.</li>
+      <li><b>Baseline:</b> run StreetCLIP zero-shot + GeoCLIP on Im2GPS3k, log <code>median_km</code> &amp; per-tier accuracy.</li>
+    </ol>
+    <div class="dod"><b>DoD:</b> <code>report()</code> runs on Im2GPS3k and prints baseline numbers for two stock models.</div>
+  </div>
+
+  <div class="phase">
+    <div class="head"><div class="badge">P1</div><h3>MVP — pretrained models behind an API</h3><span class="status done">✓ done</span></div>
+    <div class="goal">Goal: upload a photo → get ranked coordinates on a map. No training. ~days.</div>
+    <ol>
+      <li><b>GeoCLIP path</b> (continuous coords):</li>
+    </ol>
+<pre><code>from geoclip import GeoCLIP
+model = GeoCLIP()
+gps, probs = model.predict("query.jpg", top_k=5)   # → [(lat,lon)...], [conf...]</code></pre>
+    <ol start="2">
+      <li><b>StreetCLIP path</b> (zero-shot region classification, fully HF-native):</li>
+    </ol>
+<pre><code>from transformers import CLIPModel, CLIPProcessor
+from PIL import Image
+m = CLIPModel.from_pretrained("geolocal/StreetCLIP")
+p = CLIPProcessor.from_pretrained("geolocal/StreetCLIP")
+candidates = ["Paris, France", "Tokyo, Japan", "Cairo, Egypt", "..."]  # your label set
+prompts = [f"A Street View photo in {c}." for c in candidates]
+x = p(text=prompts, images=Image.open("query.jpg"), return_tensors="pt", padding=True)
+probs = m(**x).logits_per_image.softmax(-1)[0]
+guess = candidates[int(probs.argmax())]</code></pre>
+    <ol start="3">
+      <li><b>FastAPI endpoint</b> — strip EXIF on ingest to prove "pixels only":</li>
+    </ol>
+<pre><code>from fastapi import FastAPI, UploadFile
+from PIL import Image
+from geoclip import GeoCLIP
+import io
+app, model = FastAPI(), GeoCLIP()
+
+@app.post("/locate")
+async def locate(file: UploadFile):
+    img = Image.open(io.BytesIO(await file.read())).convert("RGB")
+    img.getexif().clear()                       # remove metadata
+    img.save("/tmp/q.jpg")
+    gps, probs = model.predict("/tmp/q.jpg", top_k=5)
+    return [{"lat":float(a),"lon":float(b),"confidence":float(c)}
+            for (a,b),c in zip(gps, probs)]</code></pre>
+    <ol start="4"><li><b>UI:</b> React + Leaflet/MapLibre — drop top-5 pins, show confidence.</li></ol>
+    <div class="dod"><b>DoD:</b> <code>POST /locate</code> returns 5 coords for any image; map renders pins; metrics logged vs P0 baseline.</div>
+  </div>
+
+  <div class="phase">
+    <div class="head"><div class="badge">P2</div><h3>Retrieval backbone — OSV-5M + FAISS</h3><span class="status done">✓ engine built</span></div>
+    <div class="goal">Goal: own gallery for fine, street-level matching where coverage is dense.</div>
+    <ol>
+      <li><b>Get the corpus:</b> <code>osv5m/osv5m</code> — <code>train.csv</code> has <code>latitude,longitude</code> (+ aux labels); images ship as zips under <code>images/train</code>.</li>
+      <li><b>Encode gallery → embeddings</b> (CLIP/DINOv2/StreetCLIP image encoder), L2-normalized:</li>
+    </ol>
+<pre><code>import faiss, numpy as np, torch, open_clip, pandas as pd
+from PIL import Image
+model, _, pre = open_clip.create_model_and_transforms("ViT-L-14", pretrained="openai")
+model.eval().cuda()
+df = pd.read_csv("train.csv")                   # id, latitude, longitude, ...
+coords, embs = [], []
+for _, r in df.iterrows():
+    im = pre(Image.open(f"images/train/{r.id}.jpg")).unsqueeze(0).cuda()
+    with torch.no_grad():
+        e = torch.nn.functional.normalize(model.encode_image(im), dim=-1)
+    embs.append(e.cpu().numpy()); coords.append((r.latitude, r.longitude))
+X = np.vstack(embs).astype("float32")
+index = faiss.IndexFlatIP(X.shape[1])           # cosine via inner product
+index.add(X); np.save("coords.npy", np.array(coords))
+# At scale (>1M) switch to IndexIVFFlat / HNSW.</code></pre>
+    <ol start="3"><li><b>Query = k-NN + similarity-weighted fusion</b> of neighbor coordinates:</li></ol>
+<pre><code>def locate(qemb, k=10):
+    D, I = index.search(qemb.astype("float32"), k)   # qemb: (1, dim) normalized
+    w = np.exp(D[0]); w /= w.sum()                    # softmax over cosine sims
+    c = coords[I[0]]
+    return (w[:, None] * c).sum(0)                    # weighted centroid (lat,lon)</code></pre>
+    <ol start="4"><li><b>Optional re-rank</b> top candidates with DINOv2 / image matching for street-level precision.</li></ol>
+    <div class="dod"><b>DoD:</b> city- and street-tier accuracy beat P1 on the holdout; index persisted and queryable in &lt;100ms.</div>
+  </div>
+
+  <div class="phase">
+    <div class="head"><div class="badge">P3</div><h3>Reasoning &amp; interpretability — Vision-LLM + RAG</h3><span class="status todo">planned</span></div>
+    <div class="goal">Goal (optional, subordinate): the retrieval engine/own model decides; the LLM only refines among its candidates and explains the cues — it can never override the gallery. Skip it entirely for a fully self-hosted engine.</div>
+    <ol>
+      <li><b>Retrieve</b> top-K candidates (coords + thumbnails + any OSV-5M labels) from the FAISS gallery.</li>
+      <li><b>OCR signage</b> (EasyOCR / PaddleOCR) and pass extracted text as extra context.</li>
+      <li><b>Prompt a vision-LLM</b> (GPT-4V / Qwen2-VL / LLaVA) with the image + candidates:</li>
+    </ol>
+<pre><code>prompt = f"""You are a geolocation analyst. The image plus these candidate
+locations (from visually similar geotagged photos) are given:
+{candidates}              # e.g. [{{"lat":..,"lon":..,"country":"..","city":".."}}]
+OCR text found in image: {ocr_text}
+Identify the single most likely location. Justify using concrete visual cues
+(architecture, signage script/language, vegetation, road markings, driving side).
+Return strict JSON: {{"lat": float, "lon": float, "confidence": 0-1, "reasoning": str}}"""
+# send (image, prompt) to the vision-LLM, then json.loads(response)</code></pre>
+    <ol start="4"><li><b>Aggregate:</b> if the LLM coord is far from all candidates, fall back to the retrieval centroid; keep its reasoning text.</li></ol>
+    <div class="dod"><b>DoD:</b> every prediction returns coords + a cue-based explanation; accuracy ≥ P2 on the holdout.</div>
+  </div>
+
+  <div class="phase">
+    <div class="head"><div class="badge">P4</div><h3>Custom model — PIGEON-style multi-task</h3><span class="status todo">planned</span></div>
+    <div class="goal">Goal: an owned model that generalizes to unseen places. Needs A100-class GPUs &amp; weeks.</div>
+    <ol>
+      <li><b>Semantic geocells:</b> load GADM admin polygons (geopandas), merge adjacent cells to a min sample count, split dense cells with <code>sklearn.cluster.OPTICS</code> + <code>scipy.spatial Voronoi</code>. Target ~2,000 cells.</li>
+      <li><b>Haversine-smoothing targets</b> (soft labels over cells):</li>
+    </ol>
+<pre><code>import torch
+def soft_targets(cell_centroids, true_xy, tau=75.0):   # tensors of (lat,lon)
+    d = haversine_torch(cell_centroids, true_xy)        # [num_cells], great-circle km
+    return torch.exp(-(d - d.min()) / tau)              # PIGEON eq. 2
+# loss = -(soft_targets * log_softmax(logits, dim=-1)).sum(-1).mean()</code></pre>
+    <ol start="3">
+      <li><b>Backbone + heads:</b> <code>openai/clip-vit-large-patch14-336</code>, freeze it, add a linear head → N geocells, plus auxiliary heads using OSV-5M's columns: <code>climate</code> (Köppen, classification), <code>drive_side</code>, and regressions for elevation/population (join WorldClim/GHSL).</li>
+      <li><b>Contrastive pretraining:</b> build synthetic captions from metadata ("A photo in {region}, {country}. {climate} climate. People drive on the {drive_side}.") and continue-train CLIP.</li>
+      <li><b>Refinement:</b> per geocell, OPTICS-cluster the training points; at inference take top-K cells, pick the cluster minimizing image-embedding L2, then the best point in it.</li>
+      <li><b>Train</b> on OSV-5M (+ MP-16 / GLDv2 for diversity); evaluate on Im2GPS3k + GWS15k.</li>
+    </ol>
+    <div class="dod"><b>DoD:</b> beats the P2 retrieval baseline on Im2GPS3k <i>and</i> the unseen-place GWS15k; ablate each component.</div>
+  </div>
+
+  <div class="phase">
+    <div class="head"><div class="badge">P5</div><h3>Productionization</h3><span class="status todo">planned</span></div>
+    <div class="goal">Goal: scalable, monitored service.</div>
+    <ol>
+      <li><b>Serving:</b> FastAPI + GPU workers; batch inference; Redis embedding cache; Qdrant as the vector store at scale; autoscale.</li>
+      <li><b>Eval dashboard:</b> per-tier metrics over time, drift monitoring, regression tests on a frozen holdout.</li>
+      <li><b>Hardening:</b> auth + rate limits + request logging on the API.</li>
+    </ol>
+    <div class="dod"><b>DoD:</b> latency &amp; uptime SLA met; dashboard tracks accuracy &amp; drift.</div>
+    <p class="small muted">When this graduates to a public SaaS, add a responsible-use layer here: AUP, PII blurring, abuse controls, and weight-release policy.</p>
+  </div>
+</section>
+
+<section id="stack">
+  <h2><span class="num">9</span>Recommended Stack</h2>
+  <div class="grid g3">
+    <div class="card"><span class="tag">ML</span><h4>Modeling</h4><p>PyTorch, transformers, open_clip, <code>geoclip</code>, DINOv2, ONNX Runtime.</p></div>
+    <div class="card"><span class="tag">Retrieval</span><h4>Vector search</h4><p>FAISS (in-process) → Qdrant (service) for k-NN over embeddings.</p></div>
+    <div class="card"><span class="tag">Serving</span><h4>Backend</h4><p>FastAPI + Uvicorn; GPU workers; Redis cache.</p></div>
+    <div class="card"><span class="tag">Frontend</span><h4>UI</h4><p>React + Leaflet/MapLibre; confidence heatmap + top-K pins.</p></div>
+    <div class="card"><span class="tag">Edge</span><h4>In-browser</h4><p>Transformers.js + ONNX (StreetCLIP/GeoCLIP) for client-side, private inference.</p></div>
+    <div class="card"><span class="tag">Geo</span><h4>Geospatial</h4><p>geopandas, shapely, scipy Voronoi, sklearn OPTICS, GADM/Köppen/WorldClim.</p></div>
+  </div>
+</section>
+
+<section id="refs">
+  <h2><span class="num">10</span>References</h2>
+  <ul class="clean">
+    <li><b>PlaNet</b> — Weyand et al., 2016. <a href="https://arxiv.org/abs/1602.05314">arXiv:1602.05314</a></li>
+    <li><b>NetVLAD</b> — Arandjelović et al., 2016. <a href="https://arxiv.org/abs/1511.07247">arXiv:1511.07247</a></li>
+    <li><b>GeoCLIP</b> — NeurIPS 2023. <a href="https://arxiv.org/abs/2309.16020">arXiv:2309.16020</a> · <a href="https://github.com/VicenteVivan/geo-clip">code</a></li>
+    <li><b>PIGEON / PIGEOTTO</b> — Haas et al., 2023. <a href="https://arxiv.org/abs/2307.05845">arXiv:2307.05845</a></li>
+    <li><b>Img2Loc</b> — 2024. <a href="https://arxiv.org/abs/2403.19584">arXiv:2403.19584</a></li>
+    <li><b>StreetCLIP</b> — <a href="https://huggingface.co/geolocal/StreetCLIP">huggingface.co/geolocal/StreetCLIP</a></li>
+    <li><b>OpenStreetView-5M</b> — <a href="https://huggingface.co/datasets/osv5m/osv5m">huggingface.co/datasets/osv5m/osv5m</a></li>
+    <li><b>GeoSpy / Raven</b> — <a href="https://geospy.ai">geospy.ai</a> · <a href="https://www.withraven.ai">withraven.ai</a></li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap"><p>Technical build guide for a pixels-only image geolocation engine. Verified against the Hugging Face Hub.</p></div>
+</footer>
+
+</body>
+</html>
